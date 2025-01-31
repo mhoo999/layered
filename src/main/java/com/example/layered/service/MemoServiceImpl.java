@@ -6,9 +6,11 @@ import com.example.layered.entity.Memo;
 import com.example.layered.repository.MemoRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Annotation @Service는 @Component와 같다, Spring Bean으로 등록한다는 뜻.
@@ -32,9 +34,7 @@ public class MemoServiceImpl implements MemoService {
         Memo memo = new Memo(dto.getTitle(), dto.getContents());
 
         // DB 저장
-        Memo savedMemo = memoRepository.saveMemo(memo);
-
-        return new MemoResponseDto(savedMemo);
+        return memoRepository.saveMemo(memo);
     }
 
     @Override
@@ -46,63 +46,64 @@ public class MemoServiceImpl implements MemoService {
     @Override
     public MemoResponseDto findMemoById(Long id) {
 
-        Memo memo = memoRepository.findMemoById(id);
+        Optional<Memo> optionalMemo = memoRepository.findMemoById(id);
 
-//        if (memo == null) {
-//            throw new ResponseStatusException(HttpStatus.NO_FOUND, "Does not exist id =" + id);
-//        }
+        if (optionalMemo.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Does not exist id =" + id);
+        }
 
-        return new MemoResponseDto(memo);
+        return new MemoResponseDto(optionalMemo.get());
     }
 
+    @Transactional
     @Override
     public MemoResponseDto updateMemo(Long id, String title, String contents) {
-
-        Memo memo = memoRepository.findMemoById(id);
-
-        // NPE 방지
-        if (memo == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Does not exist id = " + id);
-        }
 
         // 필수값 검증
         if (title == null || contents == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The title and content are required values.");
         }
 
-        memo.update(title, contents);
+        int updatedRow = memoRepository.updateMemo(id, title, contents);
 
-        return new MemoResponseDto(memo);
+        // NPE 방지
+        if (updatedRow == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Does not exist id = " + id);
+        }
+
+        Optional<Memo> optionalMemo = memoRepository.findMemoById(id);
+
+        return new MemoResponseDto(optionalMemo.get());
     }
 
     @Override
     public MemoResponseDto updateTitle(Long id, String title, String contents) {
-
-        Memo memo = memoRepository.findMemoById(id);
-
-        if (memo == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Does not exist id = " + id);
-        }
 
         // 필수값 검증
         if (title == null || contents != null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The title and content are required values.");
         }
 
-        memo.updateTitle(title);
+        int updateRow = memoRepository.updateTitle(id, title);
 
-        return new MemoResponseDto(memo);
+        if (updateRow == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Does not exist id = " + id);
+        }
+
+        Optional<Memo> optionalMemo = memoRepository.findMemoById(id);
+
+        return new MemoResponseDto(optionalMemo.get());
     }
 
     @Override
     public void deleteMemo(Long id) {
-        Memo memo = memoRepository.findMemoById(id);
 
-        if (memo == null) {
+        int deleteRow = memoRepository.deleteMemo(id);
+
+        if (deleteRow == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Does not exist id = " + id);
         }
 
-        memoRepository.deleteMemoById(id);
     }
 
 }
